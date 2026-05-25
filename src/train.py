@@ -49,9 +49,12 @@ def train(n_estimators: int, max_depth: int) -> str:
             input_example=X_train.head(1),
         )
 
-        print(f"run_id={run.info.run_id}")
+        run_id = run.info.run_id
+        with open(".last_run_id", "w") as f:
+            f.write(run_id)
+        print(f"run_id={run_id}")
         print(f"metrics={metrics}")
-        return run.info.run_id
+        return run_id
 
 
 def main():

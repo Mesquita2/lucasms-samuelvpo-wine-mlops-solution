@@ -16,6 +16,10 @@ mlflow.db-journal
 models/*.pkl
 !models/.gitkeep
 
+# Runtime outputs do pipeline
+.last_run_id
+promote.json
+
 # IDE
 .vscode/
 .idea/

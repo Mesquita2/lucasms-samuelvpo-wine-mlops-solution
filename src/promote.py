@@ -63,6 +63,8 @@ def decide_and_promote() -> dict:
         "threshold": THRESHOLD,
         "promoted": promoted,
     }
+    with open("promote.json", "w") as f:
+        json.dump(result, f, indent=2)
     print(json.dumps(result, indent=2))
     return result
 

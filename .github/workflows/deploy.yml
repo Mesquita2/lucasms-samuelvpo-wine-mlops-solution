@@ -48,19 +48,14 @@ jobs:
 
       - name: Evaluate latest challenger run on test set
         run: |
-          RUN_ID=$(uv run python -c "import mlflow; \
-            mlflow.set_tracking_uri('http://127.0.0.1:5000'); \
-            df = mlflow.search_runs(experiment_names=['wine-classifier'], \
-                 filter_string=\"tags.\\`mlflow.runName\\` LIKE 'challenger-%'\", \
-                 order_by=['attributes.start_time DESC']); \
-            print(df.iloc[0]['run_id'])")
+          RUN_ID=$(cat .last_run_id)
           echo "RUN_ID=$RUN_ID"
-          uv run python -m src.evaluate --run-id $RUN_ID
+          uv run python -m src.evaluate --run-id "$RUN_ID"
 
       - name: A/B promotion decision
         id: promote
         run: |
-          uv run python -m src.promote | tee promote.json
+          uv run python -m src.promote
           PROMOTED=$(python -c "import json; print(json.load(open('promote.json'))['promoted'])")
           echo "promoted=$PROMOTED" >> "$GITHUB_OUTPUT"
           echo "Decision: promoted=$PROMOTED"
