@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# MLflow local
+mlruns/
+mlflow.db
+mlflow.db-journal
+
+# Models / artifacts (mantidos no Registry, não no Git)
+models/*.pkl
+!models/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,110 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  MLFLOW_TRACKING_URI: http://127.0.0.1:5000
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/wine-classifier
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    outputs:
+      promoted: ${{ steps.promote.outputs.promoted }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen || uv sync
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Unit tests (data)
+        run: uv run pytest tests/test_data.py -q
+
+      - name: Start MLflow server
+        run: |
+          nohup uv run mlflow server --host 127.0.0.1 --port 5000 \
+            --backend-store-uri sqlite:///mlflow.db > mlflow.log 2>&1 &
+          for i in {1..30}; do
+            curl -sf http://127.0.0.1:5000/health && break || sleep 1
+          done
+
+      - name: Bootstrap champion (baseline fraco)
+        run: uv run python -m scripts.bootstrap_champion
+
+      - name: Train challenger
+        run: uv run python -m src.train --n_estimators 200 --max_depth 8
+
+      - name: Evaluate latest challenger run on test set
+        run: |
+          RUN_ID=$(uv run python -c "import mlflow; \
+            mlflow.set_tracking_uri('http://127.0.0.1:5000'); \
+            df = mlflow.search_runs(experiment_names=['wine-classifier'], \
+                 filter_string=\"tags.\\`mlflow.runName\\` LIKE 'challenger-%'\", \
+                 order_by=['attributes.start_time DESC']); \
+            print(df.iloc[0]['run_id'])")
+          echo "RUN_ID=$RUN_ID"
+          uv run python -m src.evaluate --run-id $RUN_ID
+
+      - name: A/B promotion decision
+        id: promote
+        run: |
+          uv run python -m src.promote | tee promote.json
+          PROMOTED=$(python -c "import json; print(json.load(open('promote.json'))['promoted'])")
+          echo "promoted=$PROMOTED" >> "$GITHUB_OUTPUT"
+          echo "Decision: promoted=$PROMOTED"
+
+      - name: Upload promotion artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: promotion-decision
+          path: promote.json
+
+  build-and-deploy:
+    needs: pipeline
+    if: needs.pipeline.outputs.promoted == 'True'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Rolling deploy (simulated)
+        run: |
+          echo "Iniciando rolling update da imagem ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "Em produção real, este step substitui réplica a réplica do serviço."
+          echo "Deploy concluído com sucesso."
