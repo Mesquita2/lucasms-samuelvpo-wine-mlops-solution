@@ -14,7 +14,7 @@ services:
           --allowed-hosts 'mlflow:5000,mlflow,localhost,localhost:5000,127.0.0.1,127.0.0.1:5000,host.docker.internal,host.docker.internal:5000' \
           --cors-allowed-origins '*'
     ports:
-      - "5000:5000"
+      - "5003:5000"
     volumes:
       - mlflow-data:/mlflow
       - mlflow-artifacts:/mlartifacts
@@ -26,10 +26,11 @@ services:
       start_period: 60s
 
   api:
+    platform: linux/amd64
     image: ghcr.io/gilvanveras/wine-mlops-solution/wine-classifier:latest
     pull_policy: always
     ports:
-      - "8000:8000"
+      - "8003:8000"
     environment:
       MLFLOW_TRACKING_URI: http://mlflow:5000
       PYTHONIOENCODING: utf-8
