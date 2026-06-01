@@ -27,7 +27,7 @@ services:
 
   api:
     platform: linux/amd64
-    image: ghcr.io/gilvanveras/wine-mlops-solution/wine-classifier:d95ac2515072b7f20987da5037b99023df08c840@sha256:f13eecea7db4ed0841a7b17e9455272e06864446667e627871a29d8d57aca051
+    image: ghcr.io/mesquita2/lucasms-samuelvpo-wine-mlops-solution/wine-classifier:latest
     pull_policy: always
     ports:
       - "8000:8000"
